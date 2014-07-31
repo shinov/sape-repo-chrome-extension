@@ -8,7 +8,7 @@
 
     //Public vars
     var publicVars = {
-        githubAPIURL:"https://api.github.com/orgs/sape-repo/",
+        githubAPIURL:"jqueygihub.json",
         category :['Productivity tool','Web Application Frameworks'] // decide require or not
     };
 
@@ -23,25 +23,37 @@
         // expose only those functions which are required , and  encapsulate other
         return {
 
-            setStorage : function ( keyName , keyValue ) {
-                //chrome.storage.set()
-
+            setStorage : function (getData) {
+				chrome.storage.local.set({'anonymous': getData});		
             },
 
             getStorage : function () {
-
+			    var dfd = $.Deferred();
+				chrome.storage.local.get('anonymous',function(obj){
+					dfd.resolve( obj );
+				});
+				return dfd.promise();
             },
 
             onStorageChange : function () {
-
+				chrome.storage.onChanged.addListener(function(changes, namespace) {
+					  Anonymous.NotificationAPI.showNotification();
+					  Anonymous.NotificationAPI.updateTrayIcon("iconN.png");
+					  if(typeof Anonymous.loadTemplateAPI != "undefined"){
+						  var localData = Anonymous.StorageAPI.getStorage();
+						  localData.done(function(data) {
+							Anonymous.loadTemplateAPI.createCategory(data);
+						  });
+					  }
+				});
             },
 
             removeItem : function () {
-
+                
             },
 
             clearStorage : function () {
-
+				chrome.storage.local.remove("anonymous");		
             }
         };
 
@@ -54,10 +66,30 @@
         // expose only those functions which are required , and  encapsulate other
         return {
 
-            setStorage : function ( keyName , keyValue ) {
-                //chrome.storage.set()
+            showNotification : function ( keyName , keyValue ) { 
+				chrome.notifications.create(
+					'update-notification',{   
+					type: 'basic', 
+					iconUrl: 'logo.png', 
+					title: "Sape Repo", 
+					message: "New Updates In Sape Repo" 
+					},
 
-            }
+				function() {} 
+
+				);
+				chrome.notifications.onClosed.addListener(function(notification, byUser){
+				   chrome.notifications.clear("update-notification", function(){
+				      // cleared notification
+				   });
+				});
+
+            },
+			updateTrayIcon:function(getImg){
+				chrome.browserAction.setIcon({path:getImg});
+				chrome.browserAction.setBadgeText({text: "U"});
+			}
+			
 
         };
     })();
@@ -69,13 +101,19 @@
         // expose only those functions which are required , and  encapsulate other
         return {
 
-            setAlaram : function ( keyName , keyValue ) {
-                //chrome.alaram.set()
-
-            }
-
+            setAlaram : function ( delay , period ) {	
+				var thisinitAlarm = this;
+				chrome.alarms.create('periodicSucker', {
+						delayInMinutes : delay,
+						periodInMinutes: period
+				});
+				chrome.alarms.onAlarm.addListener(function (alarm) {
+						if (alarm.name == 'periodicSucker') {
+							Anonymous.RepoSuckerAPI.fetchRepo(publicVars.githubAPIURL);
+						}
+				});
+			}
         };
-
     })();
 
     Anonymous.RepoSuckerAPI = (function(){
@@ -85,11 +123,21 @@
         // expose only those functions which are required , and  encapsulate other
         return {
 
-            setStorage : function ( keyName , keyValue ) {
-                //chrome.storage.set()
-
-            }
-
+            fetchRepo : function ( getUrl) {
+                var thisInit =  this;
+		        var getJSsonRepo = thisInit.ajaxObj(getUrl);
+				getJSsonRepo.done(function(){
+				    Anonymous.RefineJSONAPI.refineJson(getJSsonRepo.responseJSON);
+				});
+            },
+			
+			ajaxObj: function(getFetchUrl){
+				return $.ajax({
+					url:getFetchUrl,
+					dataType:'json',
+					async: true
+				});	
+			}
         };
     })();
 
@@ -100,16 +148,22 @@
         // expose only those functions which are required , and  encapsulate other
         return {
 
-            setStorage : function ( keyName , keyValue ) {
-                //chrome.storage.set()
-
+            refineJson : function ( getJsonData ) {
+			
+			    // after refining save to local storage
+			
+			    Anonymous.StorageAPI.setStorage(getJsonData);
             }
+			
         };
 
     })();
 
     // call alaram init function below
-
+	
+	Anonymous.AlaramAPI.setAlaram(.01,.3);
+	Anonymous.StorageAPI.onStorageChange();
+	
 
 })(window.Anonymous = window.Anonymous || {} , chrome );
 
