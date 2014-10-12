@@ -1,5 +1,6 @@
+/* anonymous */
+
 ;(function ( Anonymous , chrome , $ ) {
-    
 	
 	var publicVars = {
         githubAPIURL:"jqueygihub.json",
